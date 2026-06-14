@@ -1,35 +1,41 @@
-app = "autoingest"
-primary_region = "sin"
+# fly.toml app configuration file generated for autoingest on 2026-06-14T09:23:04Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'autoingest'
+primary_region = 'sin'
 
 [build]
 
 [env]
-  AUTOINGEST_SERVER_PORT = "3080"
-  AUTOINGEST_MONGO_URI = "mongodb://localhost:27017"
-  AUTOINGEST_MONGO_DATABASE = "autoingest"
-  AUTOINGEST_STORAGE_TYPE = "local"
-  AUTOINGEST_STORAGE_LOCAL_DIR = "/data/uploads"
-  AUTOINGEST_LLM_BASE_URL = ""
-  AUTOINGEST_LLM_MODEL = ""
+  AUTOINGEST_LLM_BASE_URL = ''
+  AUTOINGEST_LLM_MODEL = ''
+  AUTOINGEST_MONGO_DATABASE = 'autoingest'
+  AUTOINGEST_MONGO_URI = 'mongodb://localhost:27017'
+  AUTOINGEST_SERVER_PORT = '3080'
+  AUTOINGEST_STORAGE_LOCAL_DIR = '/data/uploads'
+  AUTOINGEST_STORAGE_TYPE = 'local'
 
 [[mounts]]
-  source = "autoingest_data"
-  destination = "/data"
-  initial_size = 1
+  source = 'autoingest_data'
+  destination = '/data'
+  initial_size = '1'
 
 [http_service]
-  internal_port = 3080
+  internal_port = 8080
   force_https = true
-  auto_stop_machines = "off"
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
 
   [http_service.concurrency]
-    type = "connections"
+    type = 'connections'
     hard_limit = 25
     soft_limit = 20
 
 [[vm]]
-  memory = "256mb"
-  cpu_kind = "shared"
+  memory = '256mb'
+  cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 256
