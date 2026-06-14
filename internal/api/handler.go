@@ -54,8 +54,7 @@ func New(cfg *AppConfig, db *store.SQLiteStore, tmplDir string) (*Handler, error
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
 	}
-	base := template.New("base").Funcs(funcs)
-	tmpls, err := base.ParseGlob(filepath.Join(tmplDir, "*.html"))
+	tmpls, err := template.New("").Funcs(funcs).ParseGlob(filepath.Join(tmplDir, "*.html"))
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
@@ -104,12 +103,9 @@ func (h *Handler) pageHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	total, _ := h.db.Count()
-	if err := h.tmpls.ExecuteTemplate(w, "history.html", map[string]interface{}{
+	h.tmpls.ExecuteTemplate(w, "history.html", map[string]interface{}{
 		"Records": records, "Total": total, "Limit": limit, "Offset": offset,
-	}); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
+	})
 }
 
 func (h *Handler) pageResult(w http.ResponseWriter, r *http.Request) {
@@ -119,10 +115,7 @@ func (h *Handler) pageResult(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", 404)
 		return
 	}
-	if err := h.tmpls.ExecuteTemplate(w, "result.html", rec); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
+	h.tmpls.ExecuteTemplate(w, "result.html", rec)
 }
 
 func (h *Handler) apiIngest(w http.ResponseWriter, r *http.Request) {
@@ -228,4 +221,4 @@ func jsonErr(w http.ResponseWriter, code int, msg string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-func min(a, b int) int { if a < b { return a }; return b }
+func min2(a, b int) int { if a < b { return a }; return b }
