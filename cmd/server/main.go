@@ -13,7 +13,7 @@ import (
 
 func loadConfig() *api.AppConfig {
 	cfg := &api.AppConfig{
-		Port:        8080,
+		Port:        3080,
 		DBPath:      "data/history.db",
 		UploadDir:   "data/uploads",
 		LLMBaseURL:  "http://localhost:20128/v1",
