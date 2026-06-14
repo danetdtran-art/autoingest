@@ -14,21 +14,18 @@
   <div class="card">
     <div class="detail-grid">
       <div class="detail-field"><label>Metric</label><div class="metric" style="margin-top:4px">{{.MetricType}}</div></div>
-      <div class="detail-field"><label>Confidence</label><span style="margin-top:4px;color:{{if gt .Confidence 0.7}}#34d399{{else if gt .Confidence 0.3}}#fbbf24{{else}}#f87171{{end}};font-weight:590">{{.Confidence | pct}}</span></div>
+      <div class="detail-field"><label>Confidence</label><span style="margin-top:4px">{{.Confidence | pct}}</span></div>
       <div class="detail-field"><label>Type</label><span style="margin-top:4px">{{.FileType}}</span></div>
       <div class="detail-field"><label>Status</label><span class="status status-{{.Status}}" style="margin-top:4px"><span class="dot"></span>{{.Status}}</span></div>
       <div class="detail-field"><label>Uploaded</label><span style="margin-top:4px">{{.CreatedAt | ago}}</span></div>
       <div class="detail-field"><label>Size</label><span style="margin-top:4px">{{.FileSize}} bytes</span></div>
     </div>
 
-    {{if .Error}}<div class="detail-block">
-      <label>⚠ Error</label>
-      <pre style="color:#f87171;border-color:rgba(248,113,113,0.15);background:rgba(248,113,113,0.04)">{{.Error}}</pre>
-    </div>{{end}}
+    {{if .Error}}<div class="detail-block"><label>Error</label><pre style="color:#f87171">{{.Error}}</pre></div>{{end}}
 
     <div class="detail-block">
       <label>1. Executive Summary</label>
-      <div id="summary-box" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px 18px;color:#f7f8f8;line-height:1.7">Đang phân tích...</div>
+      <div id="summary-box" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px 18px;color:#f7f8f8;line-height:1.7"></div>
     </div>
 
     <div class="detail-block">
@@ -53,8 +50,8 @@
       </div>
     </div>
 
-    <div class="detail-block">
-      <label>5. Raw data text + raw table</label>
+    <details class="detail-block" style="margin-top:18px" open>
+      <summary style="cursor:pointer;color:#a5b4fc;font-weight:510">5. Raw data text + raw table</summary>
       <pre id="raw-data">{{.RawText}}</pre>
       <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:12px;margin-bottom:10px">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -69,7 +66,7 @@
       <div id="raw-table-wrap" style="max-height:560px;overflow:auto;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.015)">
         <table id="raw-table" style="width:100%;border-collapse:separate;border-spacing:0"></table>
       </div>
-    </div>
+    </details>
 
     <div class="detail-block">
       <label>6. Metric/data tương ứng</label>
@@ -86,410 +83,174 @@
     <a href="/history" class="back-link">← Back to history</a>
   </div>
 </div>
-
 <script>
 (function(){
-  var metricType = {{printf "%q" .MetricType}};
-  var reasoning = {{printf "%q" .Reasoning}};
-  var rawEl = document.getElementById('raw-data');
-  var extractedEl = document.getElementById('extracted-fields');
-  var technicalEl = document.getElementById('technical-json');
-  var summaryEl = document.getElementById('summary-box');
-  var fileIntroEl = document.getElementById('file-intro-box');
-  var mappingTableEl = document.getElementById('mapping-table');
-  var friendlyExportEl = document.getElementById('friendly-export');
-  var tableEl = document.getElementById('friendly-table');
-  var rawTableEl = document.getElementById('raw-table');
-  var rawSearchEl = document.getElementById('raw-search');
-  var rawMetaEl = document.getElementById('raw-meta');
-  var rawResetEl = document.getElementById('raw-reset');
-  var rawExportEl = document.getElementById('raw-export');
-  var rawParsedCache = { headers: [], rows: [] };
+  const metricType = {{printf "%q" .MetricType}};
+  const fileType = {{printf "%q" .FileType}};
+  const confidenceText = {{printf "%s" (.Confidence | pct)}};
+  const reasoning = {{printf "%q" .Reasoning}};
+  const rawEl = document.getElementById('raw-data');
+  const extractedEl = document.getElementById('extracted-fields');
+  const technicalEl = document.getElementById('technical-json');
+  const summaryEl = document.getElementById('summary-box');
+  const fileIntroEl = document.getElementById('file-intro-box');
+  const mappingTableEl = document.getElementById('mapping-table');
+  const friendlyExportEl = document.getElementById('friendly-export');
+  const tableEl = document.getElementById('friendly-table');
+  const rawTableEl = document.getElementById('raw-table');
+  const rawSearchEl = document.getElementById('raw-search');
+  const rawMetaEl = document.getElementById('raw-meta');
+  const rawResetEl = document.getElementById('raw-reset');
+  const rawExportEl = document.getElementById('raw-export');
+  let rawParsedCache = { headers: [], rows: [] };
 
-  function fmtValue(v){
-    if (v === null || v === undefined || v === '') return '—';
-    if (Array.isArray(v)) return v.join(', ');
-    if (typeof v === 'number') {
-      if (Math.abs(v) >= 1000000) return '$' + (v/1000000).toFixed(2).replace(/\.00$/,'') + 'M';
-      if (Math.abs(v) >= 1000 && Number.isInteger(v)) return v.toLocaleString('en-US');
-      return String(v);
-    }
-    return String(v);
+  function safeJson(text){ try { return JSON.parse(text || '{}'); } catch(_) { return {}; } }
+  function metricLabel(m){
+    return ({revenue:'dữ liệu doanh thu',inventory:'dữ liệu tồn kho',employee_data:'dữ liệu nhân sự',kpi_performance:'dữ liệu KPI/hiệu suất',financial_statement:'dữ liệu tài chính',raw:'dữ liệu thô',unknown:'dữ liệu chưa phân loại rõ'})[m] || m;
   }
-
-  function isFieldMap(data){
-    var keys = Object.keys(data || {});
-    if (!keys.length) return false;
-    var hits = 0;
-    keys.forEach(function(k){
-      var v = data[k];
-      if (typeof v === 'string' && (v === k || v.indexOf('_') >= 0 || /^[a-z_]+$/i.test(v))) hits++;
-    });
-    return hits >= Math.ceil(keys.length * 0.6);
-  }
-
-  function countPrimitiveFields(data){
-    return Object.keys(data || {}).length;
-  }
-
-  function metricLabel(metric){
-    var map = {
-      revenue: 'dữ liệu doanh thu',
-      kpi_performance: 'dữ liệu KPI / hiệu suất',
-      inventory: 'dữ liệu tồn kho / kiểm kê',
-      employee_data: 'dữ liệu nhân sự',
-      financial_statement: 'dữ liệu tài chính / báo cáo P&L',
-      raw: 'dữ liệu thô chưa phân loại rõ'
-    };
-    return map[metric] || metric;
-  }
-
   function humanLabel(key){
-    var map = {
-      columns:'Các cột dữ liệu', product_lines:'Dòng sản phẩm', quarters:'Kỳ dữ liệu', regions:'Khu vực', total_rows:'Tổng số dòng',
-      revenue:'Doanh thu', revenue_usd:'Doanh thu', units_sold:'Số lượng bán', growth_pct:'Tăng trưởng',
-      cogs:'Giá vốn', gross_profit:'Lợi nhuận gộp', operating_income:'Lợi nhuận vận hành', opex:'Chi phí vận hành', net_income:'Lợi nhuận ròng', eps:'EPS',
-      skus:'SKU', discrepancy_rate:'Tỷ lệ sai lệch', shrinkage:'Thất thoát', warehouses:'Kho', inventory_value:'Giá trị tồn kho',
-      departments:'Phòng ban', headcount:'Số nhân sự', active_count:'Nhân sự active', locations:'Địa điểm',
-      kpis:'KPI', score:'Điểm số', teams:'Nhóm', periods:'Giai đoạn'
-    };
+    const map = { period:'Kỳ dữ liệu', region:'Khu vực', warehouse:'Kho', product:'Sản phẩm', revenue_usd:'Doanh thu', units:'Số lượng', defects:'Lỗi', cost_usd:'Chi phí', score:'Điểm', target:'Mục tiêu', variance:'Chênh lệch', team:'Nhóm', department:'Phòng ban', tickets:'Số ticket', wait_minutes:'Thời gian chờ', occupancy_pct:'Tỷ lệ lấp đầy', sla_breach:'Vi phạm SLA' };
     return map[key] || key.replace(/_/g,' ');
   }
-
-  function parseJson(text){
-    try { return JSON.parse(text || '{}'); } catch(e) { return {}; }
+  function fmt(v){
+    if (v === null || v === undefined || v === '') return '—';
+    if (Array.isArray(v)) return v.join(', ');
+    if (typeof v === 'number') return Number.isInteger(v) ? v.toLocaleString('en-US') : String(v);
+    return String(v);
   }
-
-  function buildSummary(metric, data, reasoningText){
-    var parts = [];
-    parts.push('Hệ thống nhận diện đây là <strong>' + metricLabel(metric) + '</strong>.');
-    if (isFieldMap(data)) {
-      parts.push('Kết quả hiện tại chủ yếu cho biết <strong>những trường dữ liệu nào đã được nhận diện</strong>, giúp người dùng hiểu file gốc đã được map sang các metric nào.');
-      parts.push('Tổng cộng nhận diện <strong>' + countPrimitiveFields(data) + ' trường</strong>.');
-    } else {
-      if (data.total_rows) parts.push('File có khoảng <strong>' + fmtValue(data.total_rows) + ' dòng dữ liệu</strong>.');
-      if (data.columns && data.columns.length) parts.push('Các cột chính gồm: <strong>' + data.columns.slice(0,8).join(', ') + '</strong>.');
-      if (data.regions && data.regions.length) parts.push('Dữ liệu trải trên <strong>' + data.regions.length + ' khu vực</strong>.');
-      if (data.product_lines && data.product_lines.length) parts.push('Bao gồm <strong>' + data.product_lines.length + ' dòng sản phẩm</strong>.');
-      if (data.departments && data.departments.length) parts.push('Bao gồm <strong>' + data.departments.length + ' phòng ban</strong>.');
-      if (data.warehouses && data.warehouses.length) parts.push('Theo dõi <strong>' + data.warehouses.length + ' kho</strong>.');
-    }
-    if (reasoningText) parts.push('Giải thích của hệ thống: ' + reasoningText + '.');
-    return parts.join(' ');
-  }
-
-  function addFileIntroCard(label, value){
-    var card = document.createElement('div');
-    card.style.cssText = 'padding:14px 16px;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.02)';
-    card.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#8a8f98;margin-bottom:6px">'+label+'</div>' +
-                     '<div style="font-size:16px;font-weight:590;color:#f7f8f8">'+fmtValue(value)+'</div>';
-    fileIntroEl.appendChild(card);
-  }
-
-  function buildFileIntro(data){
-    fileIntroEl.innerHTML = '';
-    addFileIntroCard('Loại dữ liệu', metricLabel(metricType));
-    addFileIntroCard('File type', {{printf "%q" .FileType}});
-    addFileIntroCard('Số dòng raw', rawParsedCache.rows.length || 0);
-    addFileIntroCard('Số trường nhận diện', countPrimitiveFields(data));
-    addFileIntroCard('Confidence', {{printf "%q" .Confidence | pct}});
-  }
-
-  function buildMapping(){
-    var headers = rawParsedCache.headers || [];
-    if (!headers.length) {
-      mappingTableEl.innerHTML = '<tbody><tr><td style="padding:14px;color:#8a8f98">Không có header raw để mapping.</td></tr></tbody>';
-      return;
-    }
-    var html = '<thead><tr><th style="padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.06)">Raw field</th><th style="padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.06)">Business meaning</th></tr></thead><tbody>';
-    headers.forEach(function(h){
-      html += '<tr><td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#f7f8f8">'+h+'</td><td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#d0d6e0">'+humanLabel(h)+'</td></tr>';
-    });
-    html += '</tbody>';
-    mappingTableEl.innerHTML = html;
-  }
-
-  function buildTable(data){
-    var rows = Object.keys(data || {});
-    if (!rows.length) {
-      tableEl.innerHTML = '<tbody><tr><td style="padding:14px;color:#8a8f98">Không có dữ liệu đã trích xuất.</td></tr></tbody>';
-      return;
-    }
-    var html = '<thead><tr><th style="padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.06)">Thông tin</th><th style="padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.06)">Giá trị</th></tr></thead><tbody>';
-    rows.forEach(function(k){
-      html += '<tr>' +
-        '<td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#f7f8f8;vertical-align:top">'+humanLabel(k)+'</td>' +
-        '<td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#d0d6e0;vertical-align:top">'+fmtValue(data[k])+'</td>' +
-      '</tr>';
-    });
-    html += '</tbody>';
-    tableEl.innerHTML = html;
-  }
-
-  function guessChartData(data, rawParsed){
-    var rows = rawParsed && rawParsed.rows ? rawParsed.rows : [];
-    var headers = rawParsed && rawParsed.headers ? rawParsed.headers : [];
-
-    if (data && typeof data === 'object' && !Array.isArray(data)) {
-      var numericKeys = Object.keys(data).filter(function(k){ return typeof data[k] === 'number'; });
-      if (numericKeys.length) {
-        return {
-          mode: 'single',
-          labels: numericKeys.map(humanLabel),
-          values: numericKeys.map(function(k){ return Number(data[k]); }),
-          label: 'Metric values'
-        };
-      }
-    }
-
-    if (headers.length && rows.length) {
-      var numericIdx = [];
-      for (var i = 0; i < headers.length; i++) {
-        var sample = rows.find(function(r){ return r[i] !== ''; });
-        if (sample && !isNaN(Number(sample[i]))) numericIdx.push(i);
-      }
-      if (numericIdx.length) {
-        var labelIdx = headers.findIndex(function(h, i){ return numericIdx.indexOf(i) < 0; });
-        if (labelIdx < 0) labelIdx = 0;
-        var numIdx = numericIdx[0];
-        var take = rows.slice(0, 20);
-        return {
-          mode: 'series',
-          labels: take.map(function(r, idx){ return r[labelIdx] || ('Row ' + (idx+1)); }),
-          values: take.map(function(r){ return Number(r[numIdx] || 0); }),
-          label: headers[numIdx]
-        };
-      }
-    }
-
-    return null;
-  }
-
-  function drawChart(type){
-    if (!chartCanvas) return;
-    var ctx = chartCanvas.getContext('2d');
-    var w = chartCanvas.width = chartCanvas.clientWidth * (window.devicePixelRatio || 1);
-    var h = chartCanvas.height = chartCanvas.clientHeight * (window.devicePixelRatio || 1);
-    ctx.scale((window.devicePixelRatio || 1), (window.devicePixelRatio || 1));
-    var cw = chartCanvas.clientWidth, ch = chartCanvas.clientHeight;
-    ctx.clearRect(0,0,cw,ch);
-
-    if (!chartState || !chartState.values || !chartState.values.length) {
-      chartMetaEl.textContent = 'Không đủ dữ liệu để vẽ chart.';
-      ctx.fillStyle = '#8a8f98';
-      ctx.font = '13px Inter';
-      ctx.fillText('Không đủ dữ liệu để vẽ chart', 18, 28);
-      return;
-    }
-
-    var vals = chartState.values.slice(0, 20);
-    var labels = chartState.labels.slice(0, 20);
-    var max = Math.max.apply(null, vals.concat([1]));
-    chartMetaEl.textContent = 'Chart từ ' + chartState.label + ' • ' + vals.length + ' điểm dữ liệu';
-
-    if (type === 'pie') {
-      var total = vals.reduce(function(a,b){ return a+b; }, 0) || 1;
-      var start = -Math.PI/2;
-      var colors = ['#5e6ad2','#34d399','#fbbf24','#f87171','#60a5fa','#a78bfa','#fb7185','#2dd4bf'];
-      vals.forEach(function(v, i){
-        var ang = (v/total) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.moveTo(cw/2, ch/2);
-        ctx.arc(cw/2, ch/2, Math.min(cw,ch)*0.28, start, start+ang);
-        ctx.closePath();
-        ctx.fillStyle = colors[i % colors.length];
-        ctx.fill();
-        start += ang;
-      });
-      ctx.fillStyle = '#d0d6e0';
-      ctx.font = '12px Inter';
-      labels.slice(0,6).forEach(function(lb, i){
-        ctx.fillStyle = colors[i % colors.length];
-        ctx.fillRect(cw - 170, 18 + i*18, 10, 10);
-        ctx.fillStyle = '#d0d6e0';
-        ctx.fillText(lb, cw - 154, 27 + i*18);
-      });
-      return;
-    }
-
-    var left = 54, right = 16, top = 14, bottom = 42;
-    var plotW = cw - left - right, plotH = ch - top - bottom;
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.beginPath();
-    ctx.moveTo(left, top); ctx.lineTo(left, top+plotH); ctx.lineTo(left+plotW, top+plotH); ctx.stroke();
-
-    if (type === 'line') {
-      ctx.strokeStyle = '#5e6ad2';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      vals.forEach(function(v, i){
-        var x = left + (plotW * (vals.length === 1 ? 0.5 : i/(vals.length-1)));
-        var y = top + plotH - (v/max)*plotH;
-        if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-      });
-      ctx.stroke();
-      vals.forEach(function(v, i){
-        var x = left + (plotW * (vals.length === 1 ? 0.5 : i/(vals.length-1)));
-        var y = top + plotH - (v/max)*plotH;
-        ctx.fillStyle = '#a5b4fc';
-        ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
-      });
-    } else {
-      var barW = Math.max(8, (plotW / vals.length) * 0.6);
-      vals.forEach(function(v, i){
-        var x = left + i * (plotW / vals.length) + ((plotW / vals.length) - barW)/2;
-        var y = top + plotH - (v/max)*plotH;
-        ctx.fillStyle = '#5e6ad2';
-        ctx.fillRect(x, y, barW, top+plotH-y);
-      });
-    }
-
-    ctx.fillStyle = '#8a8f98';
-    ctx.font = '11px Inter';
-    labels.forEach(function(lb, i){
-      var x = type === 'line'
-        ? left + (plotW * (labels.length === 1 ? 0.5 : i/(labels.length-1)))
-        : left + i * (plotW / labels.length) + (plotW / labels.length)/2;
-      ctx.save();
-      ctx.translate(x, ch-8);
-      ctx.rotate(-0.45);
-      ctx.fillText(String(lb).slice(0,18), 0, 0);
-      ctx.restore();
-    });
-  }
+  function csvEscape(v){ const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; }
 
   function parseRawRows(raw){
-    var lines = (raw || '').split('\n').map(function(x){ return x.trim(); }).filter(Boolean);
+    const lines = (raw || '').split('\n').map(x => x.trim()).filter(Boolean);
     if (!lines.length) return { headers: [], rows: [] };
-
-    var headerMatch = lines[0].match(/^Columns:\s*(.+)$/i);
-    if (headerMatch) {
-      var headers = headerMatch[1].split(',').map(function(x){ return x.trim(); });
-      var rows = [];
-      for (var i = 1; i < lines.length; i++) {
-        var m = lines[i].match(/^Row\s+\d+:\s*(.+)$/i);
-        if (!m) continue;
-        var vals = m[1].split(',').map(function(x){ return x.trim(); });
-        rows.push(vals);
+    const m = lines[0].match(/^Columns:\s*(.+)$/i);
+    if (m) {
+      const headers = m[1].split(',').map(x => x.trim());
+      const rows = [];
+      for (let i=1;i<lines.length;i++) {
+        const r = lines[i].match(/^Row\s+\d+:\s*(.+)$/i);
+        if (!r) continue;
+        rows.push(r[1].split(',').map(x => x.trim()));
       }
-      return { headers: headers, rows: rows };
+      return { headers, rows };
     }
-
-    var kvRows = [];
-    lines.forEach(function(line, idx){
-      var m = line.match(/^(?:Row\s+\d+:|Day\s+\d+:|Visit\s+\d+:|Ticket\s+\d+:)?\s*(.*)$/i);
-      var body = m ? m[1] : line;
-      var parts = body.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
-      var obj = {};
-      parts.forEach(function(p){
-        var pair = p.split('=');
+    const kvRows = [];
+    lines.forEach(line => {
+      const body = line.replace(/^(Day|Visit|Ticket|Row)\s+\d+:\s*/i,'');
+      const parts = body.split(',').map(x => x.trim()).filter(Boolean);
+      const obj = {};
+      parts.forEach(p => {
+        const pair = p.split('=');
         if (pair.length >= 2) obj[pair[0].trim()] = pair.slice(1).join('=').trim();
       });
       if (Object.keys(obj).length) kvRows.push(obj);
     });
     if (kvRows.length) {
-      var allHeaders = [];
-      kvRows.forEach(function(r){ Object.keys(r).forEach(function(k){ if (allHeaders.indexOf(k) < 0) allHeaders.push(k); }); });
-      return { headers: allHeaders, rows: kvRows.map(function(r){ return allHeaders.map(function(h){ return r[h] || ''; }); }) };
+      const headers = [];
+      kvRows.forEach(r => Object.keys(r).forEach(k => { if (!headers.includes(k)) headers.push(k); }));
+      return { headers, rows: kvRows.map(r => headers.map(h => r[h] || '')) };
     }
-
-    return { headers: ['Raw line'], rows: lines.map(function(line){ return [line]; }) };
+    return { headers:['Raw line'], rows: lines.map(x => [x]) };
   }
 
-  function renderRawTable(headers, rows){
-    if (!headers.length || !rows.length) {
-      rawTableEl.innerHTML = '<tbody><tr><td style="padding:14px;color:#8a8f98">Không dựng được bảng từ raw data.</td></tr></tbody>';
-      rawMetaEl.textContent = '0 dòng';
-      return;
-    }
-    var html = '<thead><tr>';
-    headers.forEach(function(h){
-      html += '<th style="position:sticky;top:0;z-index:2;padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.08);white-space:nowrap;background:#111214">'+h+'</th>';
+  function renderTable(el, headers, rows, sticky){
+    if (!headers.length) { el.innerHTML = '<tbody><tr><td style="padding:14px;color:#8a8f98">Không có dữ liệu.</td></tr></tbody>'; return; }
+    let html = '<thead><tr>';
+    headers.forEach(h => {
+      html += '<th style="padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.06);background:' + (sticky ? '#111214' : 'transparent') + ';' + (sticky ? 'position:sticky;top:0;z-index:2;' : '') + '">'+h+'</th>';
     });
     html += '</tr></thead><tbody>';
-    rows.forEach(function(row, idx){
+    rows.forEach((row, idx) => {
       html += '<tr style="background:' + (idx % 2 ? 'rgba(255,255,255,0.012)' : 'transparent') + '">';
-      row.forEach(function(cell){
-        html += '<td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#d0d6e0;vertical-align:top;white-space:nowrap">'+fmtValue(cell)+'</td>';
-      });
+      row.forEach(cell => html += '<td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#d0d6e0;vertical-align:top;white-space:nowrap">'+fmt(cell)+'</td>');
       html += '</tr>';
     });
     html += '</tbody>';
-    rawTableEl.innerHTML = html;
-    rawMetaEl.textContent = 'Hiển thị ' + rows.length + ' dòng • ' + headers.length + ' cột';
+    el.innerHTML = html;
   }
 
-  function filterRawRows(keyword){
-    var q = (keyword || '').trim().toLowerCase();
-    if (!q) return rawParsedCache.rows;
-    return rawParsedCache.rows.filter(function(row){
-      return row.some(function(cell){ return String(cell).toLowerCase().indexOf(q) >= 0; });
-    });
+  function renderSummary(data){
+    const dims = rawParsedCache.headers.filter(h => isNaN(Number((rawParsedCache.rows[0]||[])[rawParsedCache.headers.indexOf(h)] || ''))).slice(0,5);
+    const nums = rawParsedCache.headers.filter(h => !isNaN(Number((rawParsedCache.rows[0]||[])[rawParsedCache.headers.indexOf(h)] || ''))).slice(0,5);
+    const parts = [
+      'Hệ thống nhận diện đây là <strong>' + metricLabel(metricType) + '</strong>.',
+      'File có khoảng <strong>' + rawParsedCache.rows.length + ' dòng dữ liệu</strong>.',
+      dims.length ? 'Các chiều dữ liệu chính: <strong>' + dims.join(', ') + '</strong>.' : '',
+      nums.length ? 'Các chỉ số chính: <strong>' + nums.join(', ') + '</strong>.' : '',
+      reasoning ? 'Giải thích từ hệ thống: ' + reasoning + '.' : ''
+    ].filter(Boolean);
+    summaryEl.innerHTML = parts.join(' ');
+  }
+
+  function addIntroCard(label, value){
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:14px 16px;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.02)';
+    div.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#8a8f98;margin-bottom:6px">'+label+'</div><div style="font-size:16px;font-weight:590;color:#f7f8f8">'+fmt(value)+'</div>';
+    fileIntroEl.appendChild(div);
+  }
+
+  function renderIntro(data){
+    fileIntroEl.innerHTML = '';
+    const numericCols = rawParsedCache.headers.filter((h,i) => rawParsedCache.rows.some(r => !isNaN(Number(r[i]))));
+    const dimCols = rawParsedCache.headers.filter((h,i) => rawParsedCache.rows.some(r => isNaN(Number(r[i]))));
+    addIntroCard('Loại dữ liệu', metricLabel(metricType));
+    addIntroCard('Định dạng file', fileType);
+    addIntroCard('Số dòng dữ liệu', rawParsedCache.rows.length);
+    addIntroCard('Số cột dữ liệu', rawParsedCache.headers.length);
+    addIntroCard('Dimensions', dimCols.slice(0,5).join(', ') || '—');
+    addIntroCard('Metrics', numericCols.slice(0,5).join(', ') || Object.keys(data).join(', ') || '—');
+  }
+
+  function renderMapping(data){
+    const headers = rawParsedCache.headers.length ? rawParsedCache.headers : Object.keys(data);
+    const rows = headers.map(h => [h, humanLabel(h)]);
+    renderTable(mappingTableEl, ['Raw field', 'Business meaning'], rows, false);
+  }
+
+  function renderRecognized(data){
+    const keys = Object.keys(data || {});
+    if (!keys.length) { renderTable(tableEl, ['Field','Value'], [['message','No extracted data']], false); return; }
+    const rows = keys.map(k => [humanLabel(k), fmt(data[k])]);
+    renderTable(tableEl, ['Field', 'Value'], rows, false);
+  }
+
+  function renderRaw(raw){
+    rawParsedCache = parseRawRows(raw);
+    renderTable(rawTableEl, rawParsedCache.headers, rawParsedCache.rows, true);
+    rawMetaEl.textContent = 'Hiển thị ' + rawParsedCache.rows.length + ' dòng • ' + rawParsedCache.headers.length + ' cột';
   }
 
   function exportRawCsv(){
-    if (!rawParsedCache.headers.length) return;
-    var rows = filterRawRows(rawSearchEl.value);
-    var lines = [];
-    lines.push(rawParsedCache.headers.map(csvEscape).join(','));
-    rows.forEach(function(r){ lines.push(r.map(csvEscape).join(',')); });
-    var blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'raw-data-table.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 500);
+    const rows = filterRaw(rawSearchEl.value);
+    const lines = [rawParsedCache.headers.map(csvEscape).join(',')].concat(rows.map(r => r.map(csvEscape).join(',')));
+    const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'raw-data.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
-
-  function csvEscape(v){
-    var s = String(v == null ? '' : v);
-    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-    return s;
-  }
-
   function exportFriendlyCsv(){
-    var data = parseJson(extractedEl.textContent);
-    var rows = Object.keys(data || {});
-    var lines = ['field,value'];
-    rows.forEach(function(k){ lines.push(csvEscape(humanLabel(k)) + ',' + csvEscape(fmtValue(data[k]))); });
-    if (rows.length === 0) lines.push('message,No extracted data');
-    var blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'recognized-data.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 500);
+    const data = safeJson(extractedEl.textContent);
+    const lines = ['field,value']; Object.keys(data).forEach(k => lines.push(csvEscape(humanLabel(k))+','+csvEscape(fmt(data[k]))));
+    const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'recognized-data.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }
+  function filterRaw(q){
+    q = (q || '').trim().toLowerCase(); if (!q) return rawParsedCache.rows;
+    return rawParsedCache.rows.filter(r => r.some(c => String(c).toLowerCase().includes(q)));
   }
 
-  function buildRawTable(raw){
-    rawParsedCache = parseRawRows(raw);
-    renderRawTable(rawParsedCache.headers, rawParsedCache.rows);
-  }
-
-  var raw = (rawEl.textContent || '').trim();
+  const raw = (rawEl.textContent || '').trim();
   rawEl.textContent = raw || '(empty raw data)';
-
-  var data = parseJson(extractedEl.textContent);
+  const data = safeJson(extractedEl.textContent);
   extractedEl.textContent = JSON.stringify(data, null, 2);
   technicalEl.textContent = JSON.stringify(data, null, 2);
 
-  buildRawTable(raw);
-  summaryEl.innerHTML = buildSummary(metricType, data, reasoning);
-  buildFileIntro(data);
-  buildMapping();
-  buildTable(data);
+  renderRaw(raw);
+  renderSummary(data);
+  renderIntro(data);
+  renderMapping(data);
+  renderRecognized(data);
 
-  rawSearchEl.addEventListener('input', function(){
-    renderRawTable(rawParsedCache.headers, filterRawRows(rawSearchEl.value));
-  });
-  rawResetEl.addEventListener('click', function(){
-    rawSearchEl.value = '';
-    renderRawTable(rawParsedCache.headers, rawParsedCache.rows);
-  });
+  rawSearchEl.addEventListener('input', function(){ renderTable(rawTableEl, rawParsedCache.headers, filterRaw(rawSearchEl.value), true); });
+  rawResetEl.addEventListener('click', function(){ rawSearchEl.value = ''; renderTable(rawTableEl, rawParsedCache.headers, rawParsedCache.rows, true); });
   rawExportEl.addEventListener('click', exportRawCsv);
   friendlyExportEl.addEventListener('click', exportFriendlyCsv);
 })();

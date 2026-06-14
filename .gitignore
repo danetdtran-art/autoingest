@@ -8,3 +8,7 @@ samples/
 .claude/
 CLAUDE.md
 AGENTS.md
+.env
+.env.*
+!.env.local.example
+!.env.fly.example
