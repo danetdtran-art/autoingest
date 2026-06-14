@@ -1,0 +1,10 @@
+.gitnexus
+build/
+data/
+.venv/
+__pycache__/
+*.pyc
+samples/
+.claude/
+CLAUDE.md
+AGENTS.md

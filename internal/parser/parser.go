@@ -39,6 +39,11 @@ func (r *Registry) Register(p Parser) {
 	}
 }
 
+func (r *Registry) Supports(ext string) bool {
+	_, ok := r.parsers[strings.ToLower(ext)]
+	return ok
+}
+
 func (r *Registry) Parse(filePath string) (*ParseResult, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	p, ok := r.parsers[ext]

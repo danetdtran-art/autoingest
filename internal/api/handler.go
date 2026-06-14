@@ -147,7 +147,7 @@ func (h *Handler) apiIngest(w http.ResponseWriter, r *http.Request) {
 
 	parseResult, pErr := h.registry.Parse(tmpPath)
 	if pErr != nil {
-		h.db.UpdateComplete(jobID, "unknown", "", "", 0, pErr.Error())
+		h.db.UpdateComplete(jobID, "unknown", "", "", "", 0, pErr.Error())
 		jsonErr(w, 422, "parse: "+pErr.Error())
 		return
 	}
@@ -155,12 +155,12 @@ func (h *Handler) apiIngest(w http.ResponseWriter, r *http.Request) {
 	cls, cErr := h.llmCl.Classify(r.Context(), parseResult.Text, h.schemaSummary())
 	if cErr != nil {
 		efB, _ := json.Marshal(parseResult.Metadata)
-		h.db.UpdateComplete(jobID, "raw", parseResult.Text[:minl(len(parseResult.Text),500)], string(efB), 1.0, "classify: "+cErr.Error())
+		h.db.UpdateComplete(jobID, "raw", parseResult.Text[:minl(len(parseResult.Text),500)], string(efB), parseResult.Text, 0, "classify: "+cErr.Error())
 		jsonOK(w, map[string]any{"job_id": jobID, "status": "completed", "metric_type": "raw", "confidence": 0, "error": cErr.Error()})
 		return
 	}
 	efB, _ := json.Marshal(cls.ExtractedFields)
-	h.db.UpdateComplete(jobID, cls.MetricType, cls.Reasoning, string(efB), cls.Confidence, "")
+	h.db.UpdateComplete(jobID, cls.MetricType, cls.Reasoning, string(efB), parseResult.Text, cls.Confidence, "")
 	jsonOK(w, map[string]any{
 		"job_id": jobID, "status": "completed",
 		"metric_type": cls.MetricType, "confidence": cls.Confidence,
@@ -184,8 +184,7 @@ func (h *Handler) apiListResults(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) canHandle(ext string) bool {
-	_, err := h.registry.Parse("fake" + ext)
-	return err == nil || !strings.HasPrefix(err.Error(), "no parser")
+	return h.registry.Supports(ext)
 }
 
 func (h *Handler) saveTemp(reader multipart.File, fname string) (string, error) {

@@ -17,7 +17,7 @@ func loadConfig() *api.AppConfig {
 		DBPath:      "data/history.db",
 		UploadDir:   "data/uploads",
 		LLMBaseURL:  "http://localhost:20128/v1",
-		LLMModel:    "cx/gpt-5.5",
+		LLMModel:    "ag/gemini-3-flash",
 		LLMTimeout:  120 * time.Second,
 		MaxFileSize: 50,
 	}

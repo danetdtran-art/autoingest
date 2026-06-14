@@ -88,17 +88,18 @@ func (s *SQLiteStore) UpdateStatus(id, status, errMsg string) error {
 	return err
 }
 
-func (s *SQLiteStore) UpdateComplete(id, metricType, reasoning, extractedFields string, confidence float64, errMsg string) error {
+func (s *SQLiteStore) UpdateComplete(id, metricType, reasoning, extractedFields, rawText string, confidence float64, errMsg string) error {
 	_, err := s.db.Exec(`
 		UPDATE history SET
 			metric_type = ?,
 			confidence = ?,
 			reasoning = ?,
 			extracted_fields = ?,
+			raw_text = ?,
 			error = ?,
 			status = 'completed'
 		WHERE id = ?
-	`, metricType, confidence, reasoning, extractedFields, errMsg, id)
+	`, metricType, confidence, reasoning, extractedFields, rawText, errMsg, id)
 	return err
 }
 

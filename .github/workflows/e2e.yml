@@ -1,0 +1,76 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for local server availability
+        id: check-server
+        run: |
+          # In CI there is no pre-running server; skip this workflow.
+          # If you want CI to start the server, add the Go setup steps
+          # and remove this guard.
+          echo "No pre-running server in CI — running API-only tests."
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Go dependencies & build
+        run: |
+          go mod download
+          go build -o autoingest ./cmd/server/
+
+      - name: Install Python test dependencies
+        run: pip install playwright pytest-playwright
+
+      - name: Install Playwright browsers
+        run: playwright install --with-deps chromium
+
+      - name: Start AutoIngest server
+        run: |
+          export AUTOINGEST_DB_PATH="data/test_e2e.db"
+          export AUTOINGEST_UPLOAD_DIR="data/test_uploads"
+          # If no LLM available, the app still runs but returns "raw" classifications.
+          # Override to a dummy endpoint if needed, or let the test handle it.
+          ./autoingest &
+          # Wait for the server to be ready
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3080/health && break
+            sleep 1
+          done
+
+      - name: Run E2E tests
+        env:
+          AUTOINGEST_BASE_URL: http://localhost:3080
+        run: |
+          pytest tests/e2e/ -v --tb=short --browser chromium
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

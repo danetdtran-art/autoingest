@@ -8,18 +8,198 @@
     <a href="/input" class="topbar-logo"><span class="topbar-logo-mark">AI</span>AutoIngest</a>
     <div class="topbar-actions"><a href="/input">Upload</a><a href="/history">History</a></div>
   </div>
+
   <h1 class="page-title">Result <span>/ {{.FileName}}</span></h1>
+
   <div class="card">
     <div class="detail-grid">
       <div class="detail-field"><label>Metric</label><div class="metric" style="margin-top:4px">{{.MetricType}}</div></div>
-      <div class="detail-field"><label>Confidence</label><span style="color:#34d399;font-weight:590">{{.Confidence | pct}}</span></div>
-      <div class="detail-field"><label>Type</label><span>{{.FileType}}</span></div>
-      <div class="detail-field"><label>Status</label><span class="status status-{{.Status}}"><span class="dot"></span>{{.Status}}</span></div>
-      <div class="detail-field"><label>Uploaded</label><span>{{.CreatedAt | ago}}</span></div>
+      <div class="detail-field"><label>Confidence</label><span style="margin-top:4px;color:{{if gt .Confidence 0.7}}#34d399{{else if gt .Confidence 0.3}}#fbbf24{{else}}#f87171{{end}};font-weight:590">{{.Confidence | pct}}</span></div>
+      <div class="detail-field"><label>Type</label><span style="margin-top:4px">{{.FileType}}</span></div>
+      <div class="detail-field"><label>Status</label><span class="status status-{{.Status}}" style="margin-top:4px"><span class="dot"></span>{{.Status}}</span></div>
+      <div class="detail-field"><label>Uploaded</label><span style="margin-top:4px">{{.CreatedAt | ago}}</span></div>
+      <div class="detail-field"><label>Size</label><span style="margin-top:4px">{{.FileSize}} bytes</span></div>
     </div>
-    {{if .Reasoning}}<div class="detail-block"><label>Reasoning</label><p style="color:#a1a1aa;font-size:13px;line-height:1.6;margin:0">{{.Reasoning}}</p></div>{{end}}
-    {{if .ExtractedFields}}<div class="detail-block"><label>Extracted fields</label><pre>{{.ExtractedFields}}</pre></div>{{end}}
+
+    {{if .Error}}<div class="detail-block">
+      <label>⚠ Error</label>
+      <pre style="color:#f87171;border-color:rgba(248,113,113,0.15);background:rgba(248,113,113,0.04)">{{.Error}}</pre>
+    </div>{{end}}
+
+    <div class="detail-block">
+      <label>Hệ thống hiểu file này là gì</label>
+      <div id="summary-box" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px 18px;color:#f7f8f8;line-height:1.7">
+        Đang phân tích...
+      </div>
+    </div>
+
+    <div class="detail-block">
+      <label>Thông tin chính rút ra</label>
+      <div id="fact-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px"></div>
+    </div>
+
+    <div class="detail-block">
+      <label>Dữ liệu đã nhận diện</label>
+      <div id="friendly-table-wrap" style="overflow:auto;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.015)">
+        <table id="friendly-table" style="width:100%;border-collapse:collapse"></table>
+      </div>
+    </div>
+
+    <div class="detail-block">
+      <label>1. Raw data gốc</label>
+      <pre id="raw-data">{{.RawText}}</pre>
+    </div>
+
+    <div class="detail-block">
+      <label>2. Metric và data tương ứng</label>
+      <div style="margin-bottom:10px"><span class="metric">{{.MetricType}}</span></div>
+      {{if .Reasoning}}<p style="margin-bottom:12px">{{.Reasoning}}</p>{{end}}
+      <pre id="extracted-fields">{{.ExtractedFields}}</pre>
+    </div>
+
+    <details class="detail-block" style="margin-top:18px">
+      <summary style="cursor:pointer;color:#a5b4fc;font-weight:510">JSON kỹ thuật</summary>
+      <pre id="technical-json" style="margin-top:10px">{{.ExtractedFields}}</pre>
+    </details>
+
     <a href="/history" class="back-link">← Back to history</a>
   </div>
 </div>
+
+<script>
+(function(){
+  var metricType = {{printf "%q" .MetricType}};
+  var reasoning = {{printf "%q" .Reasoning}};
+  var rawEl = document.getElementById('raw-data');
+  var extractedEl = document.getElementById('extracted-fields');
+  var technicalEl = document.getElementById('technical-json');
+  var summaryEl = document.getElementById('summary-box');
+  var factsEl = document.getElementById('fact-cards');
+  var tableEl = document.getElementById('friendly-table');
+
+  function fmtValue(v){
+    if (v === null || v === undefined || v === '') return '—';
+    if (Array.isArray(v)) return v.join(', ');
+    if (typeof v === 'number') {
+      if (Math.abs(v) >= 1000000) return '$' + (v/1000000).toFixed(2).replace(/\.00$/,'') + 'M';
+      if (Math.abs(v) >= 1000 && Number.isInteger(v)) return v.toLocaleString('en-US');
+      return String(v);
+    }
+    return String(v);
+  }
+
+  function isFieldMap(data){
+    var keys = Object.keys(data || {});
+    if (!keys.length) return false;
+    var hits = 0;
+    keys.forEach(function(k){
+      var v = data[k];
+      if (typeof v === 'string' && (v === k || v.indexOf('_') >= 0 || /^[a-z_]+$/i.test(v))) hits++;
+    });
+    return hits >= Math.ceil(keys.length * 0.6);
+  }
+
+  function countPrimitiveFields(data){
+    return Object.keys(data || {}).length;
+  }
+
+  function metricLabel(metric){
+    var map = {
+      revenue: 'dữ liệu doanh thu',
+      kpi_performance: 'dữ liệu KPI / hiệu suất',
+      inventory: 'dữ liệu tồn kho / kiểm kê',
+      employee_data: 'dữ liệu nhân sự',
+      financial_statement: 'dữ liệu tài chính / báo cáo P&L',
+      raw: 'dữ liệu thô chưa phân loại rõ'
+    };
+    return map[metric] || metric;
+  }
+
+  function humanLabel(key){
+    var map = {
+      columns:'Các cột dữ liệu', product_lines:'Dòng sản phẩm', quarters:'Kỳ dữ liệu', regions:'Khu vực', total_rows:'Tổng số dòng',
+      revenue:'Doanh thu', revenue_usd:'Doanh thu', units_sold:'Số lượng bán', growth_pct:'Tăng trưởng',
+      cogs:'Giá vốn', gross_profit:'Lợi nhuận gộp', operating_income:'Lợi nhuận vận hành', opex:'Chi phí vận hành', net_income:'Lợi nhuận ròng', eps:'EPS',
+      skus:'SKU', discrepancy_rate:'Tỷ lệ sai lệch', shrinkage:'Thất thoát', warehouses:'Kho', inventory_value:'Giá trị tồn kho',
+      departments:'Phòng ban', headcount:'Số nhân sự', active_count:'Nhân sự active', locations:'Địa điểm',
+      kpis:'KPI', score:'Điểm số', teams:'Nhóm', periods:'Giai đoạn'
+    };
+    return map[key] || key.replace(/_/g,' ');
+  }
+
+  function parseJson(text){
+    try { return JSON.parse(text || '{}'); } catch(e) { return {}; }
+  }
+
+  function buildSummary(metric, data, reasoningText){
+    var parts = [];
+    parts.push('Hệ thống nhận diện đây là <strong>' + metricLabel(metric) + '</strong>.');
+    if (isFieldMap(data)) {
+      parts.push('Kết quả hiện tại chủ yếu cho biết <strong>những trường dữ liệu nào đã được nhận diện</strong>, giúp người dùng hiểu file gốc đã được map sang các metric nào.');
+      parts.push('Tổng cộng nhận diện <strong>' + countPrimitiveFields(data) + ' trường</strong>.');
+    } else {
+      if (data.total_rows) parts.push('File có khoảng <strong>' + fmtValue(data.total_rows) + ' dòng dữ liệu</strong>.');
+      if (data.columns && data.columns.length) parts.push('Các cột chính gồm: <strong>' + data.columns.slice(0,8).join(', ') + '</strong>.');
+      if (data.regions && data.regions.length) parts.push('Dữ liệu trải trên <strong>' + data.regions.length + ' khu vực</strong>.');
+      if (data.product_lines && data.product_lines.length) parts.push('Bao gồm <strong>' + data.product_lines.length + ' dòng sản phẩm</strong>.');
+      if (data.departments && data.departments.length) parts.push('Bao gồm <strong>' + data.departments.length + ' phòng ban</strong>.');
+      if (data.warehouses && data.warehouses.length) parts.push('Theo dõi <strong>' + data.warehouses.length + ' kho</strong>.');
+    }
+    if (reasoningText) parts.push('Giải thích của hệ thống: ' + reasoningText + '.');
+    return parts.join(' ');
+  }
+
+  function addFact(label, value){
+    var card = document.createElement('div');
+    card.style.cssText = 'padding:14px 16px;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.02)';
+    card.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#8a8f98;margin-bottom:6px">'+label+'</div>' +
+                     '<div style="font-size:18px;font-weight:590;color:#f7f8f8">'+fmtValue(value)+'</div>';
+    factsEl.appendChild(card);
+  }
+
+  function buildFacts(data){
+    var used = 0;
+    if (isFieldMap(data)) {
+      addFact('Loại dữ liệu', metricLabel(metricType));
+      addFact('Số trường nhận diện', countPrimitiveFields(data));
+      return;
+    }
+    ['total_rows','revenue','net_income','gross_profit','inventory_value','headcount','active_count','skus','shrinkage','score','eps'].forEach(function(k){
+      if (data[k] !== undefined) { addFact(humanLabel(k), data[k]); used++; }
+    });
+    ['regions','product_lines','departments','warehouses','columns','quarters','teams','periods','kpis'].forEach(function(k){
+      if (Array.isArray(data[k])) { addFact(humanLabel(k), data[k].length); used++; }
+    });
+    if (!used) addFact('Loại dữ liệu', metricLabel(metricType));
+  }
+
+  function buildTable(data){
+    var rows = Object.keys(data || {});
+    if (!rows.length) {
+      tableEl.innerHTML = '<tbody><tr><td style="padding:14px;color:#8a8f98">Không có dữ liệu đã trích xuất.</td></tr></tbody>';
+      return;
+    }
+    var html = '<thead><tr><th style="padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.06)">Thông tin</th><th style="padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.06)">Giá trị</th></tr></thead><tbody>';
+    rows.forEach(function(k){
+      html += '<tr>' +
+        '<td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#f7f8f8;vertical-align:top">'+humanLabel(k)+'</td>' +
+        '<td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#d0d6e0;vertical-align:top">'+fmtValue(data[k])+'</td>' +
+      '</tr>';
+    });
+    html += '</tbody>';
+    tableEl.innerHTML = html;
+  }
+
+  var raw = (rawEl.textContent || '').trim();
+  rawEl.textContent = raw || '(empty raw data)';
+
+  var data = parseJson(extractedEl.textContent);
+  extractedEl.textContent = JSON.stringify(data, null, 2);
+  technicalEl.textContent = JSON.stringify(data, null, 2);
+
+  summaryEl.innerHTML = buildSummary(metricType, data, reasoning);
+  buildFacts(data);
+  buildTable(data);
+})();
+</script>
 </body></html>
