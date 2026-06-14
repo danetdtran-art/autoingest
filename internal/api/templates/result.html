@@ -27,38 +27,59 @@
     </div>{{end}}
 
     <div class="detail-block">
-      <label>Hệ thống hiểu file này là gì</label>
-      <div id="summary-box" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px 18px;color:#f7f8f8;line-height:1.7">
-        Đang phân tích...
+      <label>1. Executive Summary</label>
+      <div id="summary-box" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px 18px;color:#f7f8f8;line-height:1.7">Đang phân tích...</div>
+    </div>
+
+    <div class="detail-block">
+      <label>2. Thông tin giới thiệu về file</label>
+      <div id="file-intro-box" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px"></div>
+    </div>
+
+    <div class="detail-block">
+      <label>3. Các metric nhận dạng được từ file</label>
+      <div id="mapping-table-wrap" style="overflow:auto;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.015)">
+        <table id="mapping-table" style="width:100%;border-collapse:collapse"></table>
       </div>
     </div>
 
     <div class="detail-block">
-      <label>Thông tin chính rút ra</label>
-      <div id="fact-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px"></div>
-    </div>
-
-    <div class="detail-block">
-      <label>Dữ liệu đã nhận diện</label>
+      <label>4. Bảng dữ liệu về những data được ghi nhận</label>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px">
+        <button id="friendly-export" class="btn btn-primary" type="button">Export CSV</button>
+      </div>
       <div id="friendly-table-wrap" style="overflow:auto;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.015)">
         <table id="friendly-table" style="width:100%;border-collapse:collapse"></table>
       </div>
     </div>
 
     <div class="detail-block">
-      <label>1. Raw data gốc</label>
+      <label>5. Raw data text + raw table</label>
       <pre id="raw-data">{{.RawText}}</pre>
+      <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:12px;margin-bottom:10px">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input id="raw-search" type="text" placeholder="Tìm trong raw data..." style="min-width:260px;padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;color:#f7f8f8;outline:none">
+          <span id="raw-meta" style="font-size:12px;color:#8a8f98">—</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button id="raw-reset" class="btn" type="button">Reset</button>
+          <button id="raw-export" class="btn btn-primary" type="button">Export CSV</button>
+        </div>
+      </div>
+      <div id="raw-table-wrap" style="max-height:560px;overflow:auto;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.015)">
+        <table id="raw-table" style="width:100%;border-collapse:separate;border-spacing:0"></table>
+      </div>
     </div>
 
     <div class="detail-block">
-      <label>2. Metric và data tương ứng</label>
+      <label>6. Metric/data tương ứng</label>
       <div style="margin-bottom:10px"><span class="metric">{{.MetricType}}</span></div>
       {{if .Reasoning}}<p style="margin-bottom:12px">{{.Reasoning}}</p>{{end}}
       <pre id="extracted-fields">{{.ExtractedFields}}</pre>
     </div>
 
     <details class="detail-block" style="margin-top:18px">
-      <summary style="cursor:pointer;color:#a5b4fc;font-weight:510">JSON kỹ thuật</summary>
+      <summary style="cursor:pointer;color:#a5b4fc;font-weight:510">7. JSON kỹ thuật</summary>
       <pre id="technical-json" style="margin-top:10px">{{.ExtractedFields}}</pre>
     </details>
 
@@ -74,8 +95,16 @@
   var extractedEl = document.getElementById('extracted-fields');
   var technicalEl = document.getElementById('technical-json');
   var summaryEl = document.getElementById('summary-box');
-  var factsEl = document.getElementById('fact-cards');
+  var fileIntroEl = document.getElementById('file-intro-box');
+  var mappingTableEl = document.getElementById('mapping-table');
+  var friendlyExportEl = document.getElementById('friendly-export');
   var tableEl = document.getElementById('friendly-table');
+  var rawTableEl = document.getElementById('raw-table');
+  var rawSearchEl = document.getElementById('raw-search');
+  var rawMetaEl = document.getElementById('raw-meta');
+  var rawResetEl = document.getElementById('raw-reset');
+  var rawExportEl = document.getElementById('raw-export');
+  var rawParsedCache = { headers: [], rows: [] };
 
   function fmtValue(v){
     if (v === null || v === undefined || v === '') return '—';
@@ -149,28 +178,35 @@
     return parts.join(' ');
   }
 
-  function addFact(label, value){
+  function addFileIntroCard(label, value){
     var card = document.createElement('div');
     card.style.cssText = 'padding:14px 16px;border:1px solid rgba(255,255,255,0.06);border-radius:12px;background:rgba(255,255,255,0.02)';
     card.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#8a8f98;margin-bottom:6px">'+label+'</div>' +
-                     '<div style="font-size:18px;font-weight:590;color:#f7f8f8">'+fmtValue(value)+'</div>';
-    factsEl.appendChild(card);
+                     '<div style="font-size:16px;font-weight:590;color:#f7f8f8">'+fmtValue(value)+'</div>';
+    fileIntroEl.appendChild(card);
   }
 
-  function buildFacts(data){
-    var used = 0;
-    if (isFieldMap(data)) {
-      addFact('Loại dữ liệu', metricLabel(metricType));
-      addFact('Số trường nhận diện', countPrimitiveFields(data));
+  function buildFileIntro(data){
+    fileIntroEl.innerHTML = '';
+    addFileIntroCard('Loại dữ liệu', metricLabel(metricType));
+    addFileIntroCard('File type', {{printf "%q" .FileType}});
+    addFileIntroCard('Số dòng raw', rawParsedCache.rows.length || 0);
+    addFileIntroCard('Số trường nhận diện', countPrimitiveFields(data));
+    addFileIntroCard('Confidence', {{printf "%q" .Confidence | pct}});
+  }
+
+  function buildMapping(){
+    var headers = rawParsedCache.headers || [];
+    if (!headers.length) {
+      mappingTableEl.innerHTML = '<tbody><tr><td style="padding:14px;color:#8a8f98">Không có header raw để mapping.</td></tr></tbody>';
       return;
     }
-    ['total_rows','revenue','net_income','gross_profit','inventory_value','headcount','active_count','skus','shrinkage','score','eps'].forEach(function(k){
-      if (data[k] !== undefined) { addFact(humanLabel(k), data[k]); used++; }
+    var html = '<thead><tr><th style="padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.06)">Raw field</th><th style="padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.06)">Business meaning</th></tr></thead><tbody>';
+    headers.forEach(function(h){
+      html += '<tr><td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#f7f8f8">'+h+'</td><td style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#d0d6e0">'+humanLabel(h)+'</td></tr>';
     });
-    ['regions','product_lines','departments','warehouses','columns','quarters','teams','periods','kpis'].forEach(function(k){
-      if (Array.isArray(data[k])) { addFact(humanLabel(k), data[k].length); used++; }
-    });
-    if (!used) addFact('Loại dữ liệu', metricLabel(metricType));
+    html += '</tbody>';
+    mappingTableEl.innerHTML = html;
   }
 
   function buildTable(data){
@@ -190,6 +226,250 @@
     tableEl.innerHTML = html;
   }
 
+  function guessChartData(data, rawParsed){
+    var rows = rawParsed && rawParsed.rows ? rawParsed.rows : [];
+    var headers = rawParsed && rawParsed.headers ? rawParsed.headers : [];
+
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      var numericKeys = Object.keys(data).filter(function(k){ return typeof data[k] === 'number'; });
+      if (numericKeys.length) {
+        return {
+          mode: 'single',
+          labels: numericKeys.map(humanLabel),
+          values: numericKeys.map(function(k){ return Number(data[k]); }),
+          label: 'Metric values'
+        };
+      }
+    }
+
+    if (headers.length && rows.length) {
+      var numericIdx = [];
+      for (var i = 0; i < headers.length; i++) {
+        var sample = rows.find(function(r){ return r[i] !== ''; });
+        if (sample && !isNaN(Number(sample[i]))) numericIdx.push(i);
+      }
+      if (numericIdx.length) {
+        var labelIdx = headers.findIndex(function(h, i){ return numericIdx.indexOf(i) < 0; });
+        if (labelIdx < 0) labelIdx = 0;
+        var numIdx = numericIdx[0];
+        var take = rows.slice(0, 20);
+        return {
+          mode: 'series',
+          labels: take.map(function(r, idx){ return r[labelIdx] || ('Row ' + (idx+1)); }),
+          values: take.map(function(r){ return Number(r[numIdx] || 0); }),
+          label: headers[numIdx]
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function drawChart(type){
+    if (!chartCanvas) return;
+    var ctx = chartCanvas.getContext('2d');
+    var w = chartCanvas.width = chartCanvas.clientWidth * (window.devicePixelRatio || 1);
+    var h = chartCanvas.height = chartCanvas.clientHeight * (window.devicePixelRatio || 1);
+    ctx.scale((window.devicePixelRatio || 1), (window.devicePixelRatio || 1));
+    var cw = chartCanvas.clientWidth, ch = chartCanvas.clientHeight;
+    ctx.clearRect(0,0,cw,ch);
+
+    if (!chartState || !chartState.values || !chartState.values.length) {
+      chartMetaEl.textContent = 'Không đủ dữ liệu để vẽ chart.';
+      ctx.fillStyle = '#8a8f98';
+      ctx.font = '13px Inter';
+      ctx.fillText('Không đủ dữ liệu để vẽ chart', 18, 28);
+      return;
+    }
+
+    var vals = chartState.values.slice(0, 20);
+    var labels = chartState.labels.slice(0, 20);
+    var max = Math.max.apply(null, vals.concat([1]));
+    chartMetaEl.textContent = 'Chart từ ' + chartState.label + ' • ' + vals.length + ' điểm dữ liệu';
+
+    if (type === 'pie') {
+      var total = vals.reduce(function(a,b){ return a+b; }, 0) || 1;
+      var start = -Math.PI/2;
+      var colors = ['#5e6ad2','#34d399','#fbbf24','#f87171','#60a5fa','#a78bfa','#fb7185','#2dd4bf'];
+      vals.forEach(function(v, i){
+        var ang = (v/total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(cw/2, ch/2);
+        ctx.arc(cw/2, ch/2, Math.min(cw,ch)*0.28, start, start+ang);
+        ctx.closePath();
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fill();
+        start += ang;
+      });
+      ctx.fillStyle = '#d0d6e0';
+      ctx.font = '12px Inter';
+      labels.slice(0,6).forEach(function(lb, i){
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(cw - 170, 18 + i*18, 10, 10);
+        ctx.fillStyle = '#d0d6e0';
+        ctx.fillText(lb, cw - 154, 27 + i*18);
+      });
+      return;
+    }
+
+    var left = 54, right = 16, top = 14, bottom = 42;
+    var plotW = cw - left - right, plotH = ch - top - bottom;
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath();
+    ctx.moveTo(left, top); ctx.lineTo(left, top+plotH); ctx.lineTo(left+plotW, top+plotH); ctx.stroke();
+
+    if (type === 'line') {
+      ctx.strokeStyle = '#5e6ad2';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      vals.forEach(function(v, i){
+        var x = left + (plotW * (vals.length === 1 ? 0.5 : i/(vals.length-1)));
+        var y = top + plotH - (v/max)*plotH;
+        if (i === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+      vals.forEach(function(v, i){
+        var x = left + (plotW * (vals.length === 1 ? 0.5 : i/(vals.length-1)));
+        var y = top + plotH - (v/max)*plotH;
+        ctx.fillStyle = '#a5b4fc';
+        ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+      });
+    } else {
+      var barW = Math.max(8, (plotW / vals.length) * 0.6);
+      vals.forEach(function(v, i){
+        var x = left + i * (plotW / vals.length) + ((plotW / vals.length) - barW)/2;
+        var y = top + plotH - (v/max)*plotH;
+        ctx.fillStyle = '#5e6ad2';
+        ctx.fillRect(x, y, barW, top+plotH-y);
+      });
+    }
+
+    ctx.fillStyle = '#8a8f98';
+    ctx.font = '11px Inter';
+    labels.forEach(function(lb, i){
+      var x = type === 'line'
+        ? left + (plotW * (labels.length === 1 ? 0.5 : i/(labels.length-1)))
+        : left + i * (plotW / labels.length) + (plotW / labels.length)/2;
+      ctx.save();
+      ctx.translate(x, ch-8);
+      ctx.rotate(-0.45);
+      ctx.fillText(String(lb).slice(0,18), 0, 0);
+      ctx.restore();
+    });
+  }
+
+  function parseRawRows(raw){
+    var lines = (raw || '').split('\n').map(function(x){ return x.trim(); }).filter(Boolean);
+    if (!lines.length) return { headers: [], rows: [] };
+
+    var headerMatch = lines[0].match(/^Columns:\s*(.+)$/i);
+    if (headerMatch) {
+      var headers = headerMatch[1].split(',').map(function(x){ return x.trim(); });
+      var rows = [];
+      for (var i = 1; i < lines.length; i++) {
+        var m = lines[i].match(/^Row\s+\d+:\s*(.+)$/i);
+        if (!m) continue;
+        var vals = m[1].split(',').map(function(x){ return x.trim(); });
+        rows.push(vals);
+      }
+      return { headers: headers, rows: rows };
+    }
+
+    var kvRows = [];
+    lines.forEach(function(line, idx){
+      var m = line.match(/^(?:Row\s+\d+:|Day\s+\d+:|Visit\s+\d+:|Ticket\s+\d+:)?\s*(.*)$/i);
+      var body = m ? m[1] : line;
+      var parts = body.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+      var obj = {};
+      parts.forEach(function(p){
+        var pair = p.split('=');
+        if (pair.length >= 2) obj[pair[0].trim()] = pair.slice(1).join('=').trim();
+      });
+      if (Object.keys(obj).length) kvRows.push(obj);
+    });
+    if (kvRows.length) {
+      var allHeaders = [];
+      kvRows.forEach(function(r){ Object.keys(r).forEach(function(k){ if (allHeaders.indexOf(k) < 0) allHeaders.push(k); }); });
+      return { headers: allHeaders, rows: kvRows.map(function(r){ return allHeaders.map(function(h){ return r[h] || ''; }); }) };
+    }
+
+    return { headers: ['Raw line'], rows: lines.map(function(line){ return [line]; }) };
+  }
+
+  function renderRawTable(headers, rows){
+    if (!headers.length || !rows.length) {
+      rawTableEl.innerHTML = '<tbody><tr><td style="padding:14px;color:#8a8f98">Không dựng được bảng từ raw data.</td></tr></tbody>';
+      rawMetaEl.textContent = '0 dòng';
+      return;
+    }
+    var html = '<thead><tr>';
+    headers.forEach(function(h){
+      html += '<th style="position:sticky;top:0;z-index:2;padding:12px 14px;text-align:left;color:#8a8f98;border-bottom:1px solid rgba(255,255,255,0.08);white-space:nowrap;background:#111214">'+h+'</th>';
+    });
+    html += '</tr></thead><tbody>';
+    rows.forEach(function(row, idx){
+      html += '<tr style="background:' + (idx % 2 ? 'rgba(255,255,255,0.012)' : 'transparent') + '">';
+      row.forEach(function(cell){
+        html += '<td style="padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:#d0d6e0;vertical-align:top;white-space:nowrap">'+fmtValue(cell)+'</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody>';
+    rawTableEl.innerHTML = html;
+    rawMetaEl.textContent = 'Hiển thị ' + rows.length + ' dòng • ' + headers.length + ' cột';
+  }
+
+  function filterRawRows(keyword){
+    var q = (keyword || '').trim().toLowerCase();
+    if (!q) return rawParsedCache.rows;
+    return rawParsedCache.rows.filter(function(row){
+      return row.some(function(cell){ return String(cell).toLowerCase().indexOf(q) >= 0; });
+    });
+  }
+
+  function exportRawCsv(){
+    if (!rawParsedCache.headers.length) return;
+    var rows = filterRawRows(rawSearchEl.value);
+    var lines = [];
+    lines.push(rawParsedCache.headers.map(csvEscape).join(','));
+    rows.forEach(function(r){ lines.push(r.map(csvEscape).join(',')); });
+    var blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'raw-data-table.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 500);
+  }
+
+  function csvEscape(v){
+    var s = String(v == null ? '' : v);
+    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function exportFriendlyCsv(){
+    var data = parseJson(extractedEl.textContent);
+    var rows = Object.keys(data || {});
+    var lines = ['field,value'];
+    rows.forEach(function(k){ lines.push(csvEscape(humanLabel(k)) + ',' + csvEscape(fmtValue(data[k]))); });
+    if (rows.length === 0) lines.push('message,No extracted data');
+    var blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'recognized-data.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 500);
+  }
+
+  function buildRawTable(raw){
+    rawParsedCache = parseRawRows(raw);
+    renderRawTable(rawParsedCache.headers, rawParsedCache.rows);
+  }
+
   var raw = (rawEl.textContent || '').trim();
   rawEl.textContent = raw || '(empty raw data)';
 
@@ -197,9 +477,21 @@
   extractedEl.textContent = JSON.stringify(data, null, 2);
   technicalEl.textContent = JSON.stringify(data, null, 2);
 
+  buildRawTable(raw);
   summaryEl.innerHTML = buildSummary(metricType, data, reasoning);
-  buildFacts(data);
+  buildFileIntro(data);
+  buildMapping();
   buildTable(data);
+
+  rawSearchEl.addEventListener('input', function(){
+    renderRawTable(rawParsedCache.headers, filterRawRows(rawSearchEl.value));
+  });
+  rawResetEl.addEventListener('click', function(){
+    rawSearchEl.value = '';
+    renderRawTable(rawParsedCache.headers, rawParsedCache.rows);
+  });
+  rawExportEl.addEventListener('click', exportRawCsv);
+  friendlyExportEl.addEventListener('click', exportFriendlyCsv);
 })();
 </script>
 </body></html>
