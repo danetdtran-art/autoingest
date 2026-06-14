@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoIngest</title><link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="app">
+<header><h1>&#x1F4C1; AutoIngest</h1><nav><a href="/input" class="active">Upload</a><a href="/history">History</a></nav></header>
+<main>
+<div class="card upload-card">
+  <h2>Upload File</h2>
+  <form id="upload-form" enctype="multipart/form-data">
+    <div class="drop-zone" id="drop-zone">
+      <p>Drop file here or click to browse</p>
+      <input type="file" name="file" id="file-input" required>
+      <p class="note">CSV, XLSX, HTML, TXT, MD, PDF - Max 50MB</p>
+    </div>
+    <div id="file-name" class="file-name" style="display:none"></div>
+    <div class="progress" id="progress" style="display:none">
+      <div class="progress-bar" id="progress-bar"></div>
+      <span id="progress-text">Processing</span>
+    </div>
+    <button type="submit" id="submit-btn">Upload &amp; Classify</button>
+  </form>
+</div>
+<div id="result-area" style="display:none" class="card"></div>
+<script>const dz=document.getElementById("drop-zone"),fi=document.getElementById("file-input"),fm=document.getElementById("upload-form"),fn=document.getElementById("file-name"),pr=document.getElementById("progress"),pb=document.getElementById("progress-bar"),sb=document.getElementById("submit-btn"),ra=document.getElementById("result-area");fi.addEventListener("change",()=>{if(fi.files.length){fn.textContent="&#x1F4CE; "+fi.files[0].name;fn.style.display="block"}});dz.addEventListener("click",()=>fi.click());dz.addEventListener("dragover",e=>{e.preventDefault();dz.classList.add("drag")});dz.addEventListener("dragleave",()=>dz.classList.remove("drag"));dz.addEventListener("drop",e=>{e.preventDefault();dz.classList.remove("drag");if(e.dataTransfer.files.length){fi.files=e.dataTransfer.files;fn.textContent="&#x1F4CE; "+e.dataTransfer.files[0].name;fn.style.display="block"}});fm.addEventListener("submit",async e=>{e.preventDefault();const fd=new FormData(fm);sb.disabled=true;sb.textContent="Processing...";pr.style.display="flex";let p=0;const iv=setInterval(()=>{p=Math.min(p+Math.random()*8,90);pb.style.width=p+"%"},300);try{const r=await fetch("/api/ingest",{method:"POST",body:fd});clearInterval(iv);const d=await r.json();if(d.error){ra.innerHTML="<h3>Error</h3><p>"+d.error+"</p>"}else{ra.innerHTML="<h3>Classified</h3><p>Metric: <b>"+d.metric_type+"</b> ("+Math.round(d.confidence*100)+"%)</p><a href="/result/"+d.job_id+"">View Details</a>"}ra.style.display="block"}catch(e){clearInterval(iv);ra.innerHTML="<h3>Error</h3><p>"+e.message+"</p>";ra.style.display="block"}sb.disabled=false;sb.textContent="Upload & Classify";pr.style.display="none"}})</script>
+</main><footer>autoingest - Go + SQLite</footer></div></body></html>

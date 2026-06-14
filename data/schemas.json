@@ -1,0 +1,27 @@
+[
+  {
+    "type": "revenue",
+    "description": "Revenue figures with totals and categories.",
+    "fields": ["period", "total_revenue", "growth_rate", "currency"]
+  },
+  {
+    "type": "kpi_performance",
+    "description": "KPI metrics with actuals, targets, status.",
+    "fields": ["period", "metrics"]
+  },
+  {
+    "type": "inventory",
+    "description": "Stock levels and product values.",
+    "fields": ["products", "total_value"]
+  },
+  {
+    "type": "employee_data",
+    "description": "Headcount and department data.",
+    "fields": ["period", "departments", "total_headcount"]
+  },
+  {
+    "type": "financial_statement",
+    "description": "Balance sheet, income, cash flow.",
+    "fields": ["period", "total_assets", "total_liabilities", "net_income"]
+  }
+]

@@ -1,0 +1,24 @@
+server:
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 60s
+
+mongo:
+  uri: "mongodb://localhost:27017"
+  database: autoingest
+  max_pool_size: 10
+
+storage:
+  type: local  # local | minio
+  local_dir: ./data/uploads
+  minio_url: "localhost:9000"
+  minio_bucket: autoingest
+
+llm:
+  base_url: "http://localhost:20128/v1"
+  model: "gpt-4"
+  timeout: 120s
+
+limits:
+  max_file_size_mb: 50
+  max_workers: 4

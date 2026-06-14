@@ -1,0 +1,37 @@
+# Go build
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test
+*.test
+*.out
+
+# Dev env
+.env
+.env.*
+!config.yaml.example
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (will be mounted as volume)
+data/uploads/*
+data/*.db
+
+# Python workspace
+autoingest/
+.venv/
+
+# Architecture docs
+autoingest-architecture/
+*.html
+*.md

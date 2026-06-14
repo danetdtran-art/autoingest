@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoIngest - History</title><link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="app">
+<header><h1>&#x1F4C1; AutoIngest</h1><nav><a href="/input">Upload</a><a href="/history" class="active">History</a></nav></header>
+<main>
+<div class="card">
+  <h2>Upload History</h2>
+  <table>
+    <thead><tr><th>Time</th><th>File</th><th>Type</th><th>Metric</th><th>Confidence</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {{range .Records}}
+      <tr>
+        <td>{{.CreatedAt | ago}}</td>
+        <td>{{.FileName}}</td>
+        <td>{{.FileType}}</td>
+        <td>{{.MetricType}}</td>
+        <td>{{.Confidence | pct}}</td>
+        <td>{{.Status}}</td>
+        <td><a href="/result/{{.ID}}">View</a></td>
+      </tr>
+      {{else}}
+      <tr><td colspan="7" class="empty">No uploads yet. <a href="/input">Upload your first file</a></td></tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{if gt .Total .Limit}}
+  <div class="pager">
+    {{if gt .Offset 0}}<a href="?offset={{sub .Offset .Limit}}&limit={{.Limit}}">Prev</a>{{end}}
+    <span>{{.Offset}}-{{add .Offset .Limit}} of {{.Total}}</span>
+    {{if lt (add .Offset .Limit) .Total}}<a href="?offset={{add .Offset .Limit}}&limit={{.Limit}}">Next</a>{{end}}
+  </div>
+  {{end}}
+</div>
+</main><footer>autoingest - Go + SQLite</footer></div></body></html>

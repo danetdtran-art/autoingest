@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoIngest - Result</title><link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="app">
+<header><h1>&#x1F4C1; AutoIngest</h1><nav><a href="/input">Upload</a><a href="/history">History</a></nav></header>
+<main>
+<div class="card result-card">
+  <h2>Classification Result</h2>
+  <div class="result-grid">
+    <div class="result-field"><label>File</label><span>{{.FileName}}</span></div>
+    <div class="result-field"><label>Type</label><span>{{.FileType}}</span></div>
+    <div class="result-field"><label>Metric</label><span class="metric-badge">{{.MetricType}}</span></div>
+    <div class="result-field"><label>Confidence</label><span class="confidence">{{.Confidence | pct}}</span></div>
+    <div class="result-field"><label>Status</label><span>{{.Status}}</span></div>
+    <div class="result-field"><label>Time</label><span>{{.CreatedAt | ago}}</span></div>
+  </div>
+  {{if .Reasoning}}
+  <div class="reasoning"><label>Reasoning</label><p>{{.Reasoning}}</p></div>
+  {{end}}
+  {{if .ExtractedFields}}
+  <div class="extracted"><label>Extracted Fields</label><pre>{{.ExtractedFields}}</pre></div>
+  {{end}}
+  <a href="/history" class="back-link">Back to History</a>
+</div>
+</main><footer>autoingest - Go + SQLite</footer></div></body></html>
