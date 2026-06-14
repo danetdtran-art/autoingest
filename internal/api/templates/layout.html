@@ -1,0 +1,28 @@
+{{define "head"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoIngest</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>📁 AutoIngest</h1>
+    <nav>
+      <a href="/input" class="{{if eq .Active "input"}}active{{end}}">Upload</a>
+      <a href="/history" class="{{if eq .Active "history"}}active{{end}}">History</a>
+    </nav>
+  </header>
+  <main>
+{{end}}
+
+{{define "foot"}}
+  </main>
+  <footer>autoingest · Go + SQLite</footer>
+</div>
+</body>
+</html>
+{{end}}

@@ -1,10 +1,12 @@
 package api
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
+	"io/fs"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -21,6 +23,12 @@ import (
 	"github.com/silvertiger/autoingest/internal/parser"
 	"github.com/silvertiger/autoingest/internal/store"
 )
+
+//go:embed templates
+var templatesFS embed.FS
+
+//go:embed static
+var staticFS embed.FS
 
 type AppConfig struct {
 	Port        int
@@ -40,7 +48,7 @@ type Handler struct {
 	tmpls    *template.Template
 }
 
-func New(cfg *AppConfig, db *store.SQLiteStore, tmplDir string) (*Handler, error) {
+func New(cfg *AppConfig, db *store.SQLiteStore) (*Handler, error) {
 	funcs := template.FuncMap{
 		"formatTime": func(t time.Time) string { return t.Format("15:04") },
 		"pct":        func(f float64) string { return fmt.Sprintf("%.0f%%", f*100) },
@@ -54,7 +62,8 @@ func New(cfg *AppConfig, db *store.SQLiteStore, tmplDir string) (*Handler, error
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
 	}
-	tmpls, err := template.New("").Funcs(funcs).ParseGlob(filepath.Join(tmplDir, "*.html"))
+	tfs, _ := fs.Sub(templatesFS, "templates")
+	tmpls, err := template.New("").Funcs(funcs).ParseFS(tfs, "*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
@@ -72,7 +81,10 @@ func (h *Handler) Router() *chi.Mux {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
-	r.Handle("/static/*", http.FileServer(http.Dir("static")))
+	// Serve embedded static files
+	sfs, _ := fs.Sub(staticFS, "static")
+	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(sfs))))
+
 	r.Get("/", h.pageInput)
 	r.Get("/input", h.pageInput)
 	r.Get("/history", h.pageHistory)
@@ -98,10 +110,7 @@ func (h *Handler) pageHistory(w http.ResponseWriter, r *http.Request) {
 	offset, _ := strconv.Atoi(offsetStr)
 
 	records, err := h.db.List(limit, offset)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
+	if err != nil { http.Error(w, err.Error(), 500); return }
 	total, _ := h.db.Count()
 	h.tmpls.ExecuteTemplate(w, "history.html", map[string]interface{}{
 		"Records": records, "Total": total, "Limit": limit, "Offset": offset,
@@ -109,12 +118,8 @@ func (h *Handler) pageHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) pageResult(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	rec, err := h.db.Get(id)
-	if err != nil {
-		http.Error(w, "not found", 404)
-		return
-	}
+	rec, err := h.db.Get(chi.URLParam(r, "id"))
+	if err != nil { http.Error(w, "not found", 404); return }
 	h.tmpls.ExecuteTemplate(w, "result.html", rec)
 }
 
@@ -123,23 +128,14 @@ func (h *Handler) apiIngest(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxSize)
 
 	file, header, err := r.FormFile("file")
-	if err != nil {
-		jsonErr(w, 400, "missing or invalid file field")
-		return
-	}
+	if err != nil { jsonErr(w, 400, "missing or invalid file field"); return }
 	defer file.Close()
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
-	if !h.canHandle(ext) {
-		jsonErr(w, 400, "unsupported file type: "+ext)
-		return
-	}
+	if !h.canHandle(ext) { jsonErr(w, 400, "unsupported: "+ext); return }
 
 	tmpPath, err := h.saveTemp(file, header.Filename)
-	if err != nil {
-		jsonErr(w, 500, "save file: "+err.Error())
-		return
-	}
+	if err != nil { jsonErr(w, 500, "save: "+err.Error()); return }
 	defer os.Remove(tmpPath)
 
 	jobID := ulid.Make().String()
@@ -152,14 +148,14 @@ func (h *Handler) apiIngest(w http.ResponseWriter, r *http.Request) {
 	parseResult, pErr := h.registry.Parse(tmpPath)
 	if pErr != nil {
 		h.db.UpdateComplete(jobID, "unknown", "", "", 0, pErr.Error())
-		jsonErr(w, 422, "parse failed: "+pErr.Error())
+		jsonErr(w, 422, "parse: "+pErr.Error())
 		return
 	}
 
 	cls, cErr := h.llmCl.Classify(r.Context(), parseResult.Text, h.schemaSummary())
 	if cErr != nil {
 		efB, _ := json.Marshal(parseResult.Metadata)
-		h.db.UpdateComplete(jobID, "raw", parseResult.Text[:min(len(parseResult.Text),500)], string(efB), 1.0, "classify failed: "+cErr.Error())
+		h.db.UpdateComplete(jobID, "raw", parseResult.Text[:minl(len(parseResult.Text),500)], string(efB), 1.0, "classify: "+cErr.Error())
 		jsonOK(w, map[string]any{"job_id": jobID, "status": "completed", "metric_type": "raw", "confidence": 0, "error": cErr.Error()})
 		return
 	}
@@ -197,7 +193,9 @@ func (h *Handler) saveTemp(reader multipart.File, fname string) (string, error) 
 	os.MkdirAll(dir, 0o755)
 	ext := filepath.Ext(fname)
 	tmp, err := os.CreateTemp(dir, "ai-*"+ext)
-	if err != nil { return "", err }
+	if err != nil {
+		return "", err
+	}
 	defer tmp.Close()
 	if _, err := io.Copy(tmp, reader); err != nil {
 		os.Remove(tmp.Name())
@@ -221,4 +219,4 @@ func jsonErr(w http.ResponseWriter, code int, msg string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-func min2(a, b int) int { if a < b { return a }; return b }
+func minl(a, b int) int { if a < b { return a }; return b }

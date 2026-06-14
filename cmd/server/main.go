@@ -40,7 +40,7 @@ func main() {
 	if err != nil { log.Fatalf("sqlite: %v", err) }
 	defer db.Close()
 
-	h, err := api.New(cfg, db, "templates")
+	h, err := api.New(cfg, db)
 	if err != nil { log.Fatalf("api: %v", err) }
 
 	addr := fmt.Sprintf(":%d", cfg.Port)

@@ -1,0 +1,212 @@
+/* ============================================
+   AutoIngest — Linear.app inspired design
+   Dark mode + glassmorphism + minimal
+   ============================================ */
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg: #08090a;
+  --surface: #0f1011;
+  --card: rgba(255,255,255,0.025);
+  --border: rgba(255,255,255,255,0.05);
+  --border-hover: rgba(255,255,0.1);
+  --text: #f7f8f8;
+  --text-secondary: #d0d6e0;
+  --text-muted: #8a8f98;
+  --text-dim: #62666d;
+  --accent: #5e6ad2;
+  --accent-hover: #7170ff;
+  --accent-glow: rgba(94,106,210,0.15);
+  --green: #10b981;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --font: 'Inter', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+html{font-size:14px;line-height:1.5}
+body{font-family:var(--font);background:var(--bg);color:var(--text-secondary);min-height:100vh;font-feature-settings:'cv01','ss03'}
+
+/* ── App wrapper ───────────────────────── */
+.app{max-width:960px;margin:0 auto;padding:0 20px}
+
+/* ── Top nav ──────────────────────────── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  height:56px;
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;
+  background:rgba(8,9,10,0.8);
+  backdrop-filter:blur(12px);
+  z-index:100;
+}
+.topbar-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);font-weight:510;font-size:15px;letter-spacing:-0.15px}
+.topbar-icon{
+  width:28px;height:28px;border-radius:6px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-hover));
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:#fff;
+}
+
+.topbar-actions{display:flex;gap:2px}
+.topbar-link{
+  font-size:13px;font-weight:510;color:var(--text-dim);
+  text-decoration:none;padding:6px 12px;border-radius:6px;
+  transition:all .15s ease;
+}
+.topbar-link:hover{color:var(--text-secondary);background:rgba(255,255,255,0.04)}
+.topbar-link.active{color:var(--text);background:rgba(255,255,255,0.06)}
+
+/* ── Headers ─────────────────────────── */
+.h1{font-size:20px;font-weight:590;color:var(--text);letter-spacing:-0.24px;margin:24px 0 4px}
+.h1 span{color:var(--text-muted);font-weight:400}
+
+/* ── Cards ─────────────────────────── */
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:24px;
+  margin-bottom:16px;
+  transition:border-color .2s;
+}
+.card:hover{border-color:var(--border-hover)}
+
+/* ── Dropzone ─────────────────────────── */
+.dropzone{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;
+  border:1px dashed rgba(255,255,255,0.1);
+  border-radius:var(--radius-lg);
+  padding:48px 24px;
+  cursor:pointer;
+  transition:all .2s;
+  background:rgba(255,255,255,0.01);
+}
+.dropzone:hover,.dropzone.drag{
+  border-color:var(--accent);
+  background:rgba(94,106,210,0.04);
+}
+.dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.dropzone-icon{
+  font-size:32px;opacity:.7;
+}
+.dropzone-text{font-size:14px;color:var(--text-secondary)}
+.dropzone-hint{font-size:12px;color:var(--text-dim)}
+
+/* ── Progress ───────────────────────── */
+.progress{
+  display:none;align-items:center;gap:12px;
+  padding:12px 16px;margin-top:16px;
+  background:rgba(255,255,255,0.02);
+  border-radius:var(--radius);
+}
+.progress.show{display:flex}
+.progress-bar{
+  height:3px;flex:1;
+  background:linear-gradient(90deg,var(--accent),var(--accent-hover));
+  border-radius:3px;transition:width .3s;
+}
+.progress-text{font-size:12px;color:var(--text-dim);white-space:nowrap}
+
+/* ── Buttons ────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 16px;border-radius:var(--radius);
+  font-size:13px;font-weight:510;
+  border:1px solid rgba(255,255,255,0.1);
+  background:transparent;color:var(--text-secondary);
+  cursor:pointer;transition:all .15s;font-family:var(--font);
+  letter-spacing:-0.011em;
+  text-decoration:none;
+}
+.btn:hover{background:rgba(255,255,255,0.05);border-color:rgba(255,0.15)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);color:#fff}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Toast / Result ────────────── */
+.toast{
+  display:none;
+  padding:16px 20px;margin-top:16px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  animation:toast-in .3s ease;
+}
+.toast.show{display:flex;align-items:center;gap:14px}
+@keyframes toast-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.toast-icon{font-size:20px}
+.toast-title{font-size:14px;font-weight:590;color:var(--text);letter-spacing:-0.165px}
+.toast-hint{font-size:12px;color:var(--text-dim);margin-top:2px}
+.toast-hint a{color:var(--accent-hover);text-decoration:none}
+.toast-hint a:hover{text-decoration:underline}
+
+/* ── Table (History) ───────────── */
+.table-wrap{border-radius:var(--radius);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{
+  text-align:left;padding:8px 12px;
+  font-size:11px;font-weight:510;color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,0.2);
+}
+tbody td{
+  padding:10px 12px;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  font-size:13px;
+}
+tbody tr:hover{background:rgba(255,255,255,0.02)}
+tbody a{color:var(--accent-hover);text-decoration:none}
+tbody a:hover{color:#fff;text-decoration:underline}
+
+/* ── Status dot ────────────────── */
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:510;color:var(--text-dim)}
+.dot{width:6px;height:6px;border-radius:50%;background:#52525b}
+.status-completed .dot{background:var(--green)}
+.status-parsing .dot{background:#818cf8;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.badge{
+  display:inline-flex;align-items:center;
+  padding:2px 8px;border-radius:999px;
+  font-size:11px;font-weight:510;
+  background:rgba(129,140,248,0.08);
+  color:#a5b4fc;
+  border:1px solid rgba(129,140,248,0.15);
+}
+
+/* ── Detail view ────────────────── */
+.detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field-label{font-size:11px;font-weight:510;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em}
+.field-value{font-size:14px;font-weight:510;color:var(--text)}
+
+.info-block{
+  margin-top:20px;padding:16px;
+  background:rgba(255,255,255,0.015);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+.info-block-label{font-size:11px;font-weight:510;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.info-block p{font-size:13px;color:var(--text-muted);line-height:1.6}
+.info-block pre{font-family:var(--mono);font-size:12px;color:var(--text-muted);white-space:pre-wrap;line-height:1.65}
+
+.back-link{display:inline-flex;align-items:center;gap:6px;margin-top:20px;color:#818cf8;font-size:13px;font-weight:500;text-decoration:none}
+.back-link:hover{color:#fff;text-decoration:underline}
+
+/* ── Empty ──────────────────────── */
+.empty{text-align:center;padding:48px;color:var(--text-dim)}
+.empty a{color:#818cf8}
+.empty a:hover{color:#fff}
+
+/* ── Footer ─────────────────────── */
+.footer{text-align:center;padding:32px 0 24px;color:var(--text-dim);font-size:11px;border-top:1px solid var(--border);margin-top:32px}
+
+/* ── Responsive ──────────────────── */
+@media(max-width:640px){
+  .detail-grid{grid-template-columns:1fr 1fr}
+  .app{padding:8px}
+  h1{font-size:18px}
+}

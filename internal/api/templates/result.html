@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoIngest — Result</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;510;590;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="app">
+  <div class="topbar">
+    <a href="/input" class="topbar-logo"><span class="topbar-logo-mark">AI</span>AutoIngest</a>
+    <div class="topbar-actions"><a href="/input">Upload</a><a href="/history">History</a></div>
+  </div>
+  <h1 class="page-title">Result <span>/ {{.FileName}}</span></h1>
+  <div class="card">
+    <div class="detail-grid">
+      <div class="detail-field"><label>Metric</label><div class="metric" style="margin-top:4px">{{.MetricType}}</div></div>
+      <div class="detail-field"><label>Confidence</label><span style="color:#34d399;font-weight:590">{{.Confidence | pct}}</span></div>
+      <div class="detail-field"><label>Type</label><span>{{.FileType}}</span></div>
+      <div class="detail-field"><label>Status</label><span class="status status-{{.Status}}"><span class="dot"></span>{{.Status}}</span></div>
+      <div class="detail-field"><label>Uploaded</label><span>{{.CreatedAt | ago}}</span></div>
+    </div>
+    {{if .Reasoning}}<div class="detail-block"><label>Reasoning</label><p style="color:#a1a1aa;font-size:13px;line-height:1.6;margin:0">{{.Reasoning}}</p></div>{{end}}
+    {{if .ExtractedFields}}<div class="detail-block"><label>Extracted fields</label><pre>{{.ExtractedFields}}</pre></div>{{end}}
+    <a href="/history" class="back-link">← Back to history</a>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoIngest — History</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;510;590;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css"></head><body>
+<div class="app">
+  <div class="topbar">
+    <a href="/input" class="topbar-logo"><span class="topbar-logo-mark">AI</span>AutoIngest</a>
+    <div class="topbar-actions"><a href="/input">Upload</a><a href="/history" class="active">History</a></div>
+  </div>
+  <h1 class="page-title">History <span>/ {{.Total}} records</span></h1>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead><tr><th>Time</th><th>File</th><th>Type</th><th>Metric</th><th>Conf</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {{range .Records}}<tr>
+          <td style="color:#52525b;font-size:12px">{{.CreatedAt | ago}}</td>
+          <td style="color:#d4d4d8">{{.FileName}}</td>
+          <td style="color:#6b7280;font-size:12px">{{.FileType}}</td>
+          <td><span class="metric">{{.MetricType}}</span></td>
+          <td style="color:#a1a1aa;font-weight:510">{{.Confidence | pct}}</td>
+          <td><span class="status{{if eq .Status "completed"}} status-completed{{end}}{{if eq .Status "parsing"}} status-parsing{{end}}{{if eq .Status "failed"}} status-failed{{end}}"><span class="dot"></span>{{.Status}}</span></td>
+          <td><a href="/result/{{.ID}}">Open →</a></td>
+        </tr>{{else}}<tr><td colspan="7" class="empty">Chưa có file nào. <a href="/input">Upload file đầu tiên →</a></td></tr>{{end}}
+      </tbody>
+    </table>
+    {{if gt .Total .Limit}}
+    <div style="display:flex;justify-content:center;align-items:center;gap:16px;padding:16px;color:#52525b;font-size:12px">
+      {{if gt .Offset 0}}<a href="?offset={{sub .Offset .Limit}}&limit={{.Limit}}" style="color:#a5b4fc;text-decoration:none">← Prev</a>{{end}}
+      <span>{{.Offset}}–{{add .Offset .Limit}} of {{.Total}}</span>
+      {{if lt (add .Offset .Limit) .Total}}<a href="?offset={{add .Offset .Limit}}&limit={{.Limit}}" style="color:#a5b4fc;text-decoration:none">Next →</a>{{end}}
+    </div>{{end}}
+  </div>
+</div>
+</body></html>
