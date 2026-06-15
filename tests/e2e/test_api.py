@@ -3,7 +3,7 @@
 import pytest
 import requests
 
-BASE_URL = "http://localhost:3080"
+BASE_URL = "http://localhost:8080"
 
 
 def create_job(filename="test.txt", content="Test document.\nRevenue: $100,000.\n"):
